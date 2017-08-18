@@ -12,12 +12,20 @@ namespace flashRom
         {
             byte[] buffer = Encoding.UTF8.GetBytes(str);
             byte[] data = SHA1.Create().ComputeHash(buffer);
-            StringBuilder sb = new StringBuilder();
-            foreach (var t in data)
-            {
-                sb.Append(t.ToString("X2"));
-            }
-            return sb.ToString();
+            return BitConverter.ToString(data).Replace("-", String.Empty).ToLower();
+            //StringBuilder sb = new StringBuilder();
+            //foreach (var t in data)
+            //{
+            //    sb.Append(t.ToString("X2"));
+            //}
+            //return sb.ToString();
+        }
+
+        private static readonly DateTime Jan1st1970 = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        public static long CurrentTimeMillis()
+        {
+            return (long)(DateTime.UtcNow - Jan1st1970).TotalMilliseconds;
         }
     }
 }

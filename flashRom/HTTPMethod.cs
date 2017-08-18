@@ -17,10 +17,10 @@ namespace flashRom
             return postDataToUrl(data, finalUrl, bindIP);
         }
 
-        public static string getDataToUrl(string url, Dictionary<string, string> paramDic, string bindIP)
+        public static string getDataFromUrl(string url, Dictionary<string, string> paramDic, string bindIP)
         {
             string finalUrl = BuildUrl(url, paramDic);
-            return getDataToUrl(finalUrl, bindIP);
+            return getDataFromUrl(finalUrl, bindIP);
         }
         public static string postDataToUrl(string data, string url, string bindIP)
         {
@@ -61,7 +61,93 @@ namespace flashRom
             return result;
         }
 
-        public static string getDataToUrl(string url, string bindIP)
+        public static string postFileToUrl(string filePath, string url, string bindIP)
+        {
+
+            string fileFormName = "image";
+            string contenttype = "application/octet-stream";
+            string boundary = "----------" + DateTime.Now.Ticks.ToString("x");
+            HttpWebRequest webrequest = (HttpWebRequest)WebRequest.Create(url);
+            webrequest.ServicePoint.BindIPEndPointDelegate = delegate (ServicePoint servicePoint, IPEndPoint remoteEndPoint, int retryCount)
+            {
+                if (remoteEndPoint.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                {
+                    return new IPEndPoint(IPAddress.Parse(bindIP), 0);
+                }
+                return null;
+            };
+
+            webrequest.ContentType = "multipart/form-data; boundary=" + boundary;
+            webrequest.Method = "POST";
+
+            // Build up the post message header  
+            StringBuilder sb = new StringBuilder();
+            sb.Append("--");
+            sb.Append(boundary);
+            sb.Append("");
+            sb.AppendLine();
+            sb.Append("Content-Disposition: form-data; name=\"");
+            sb.Append(fileFormName);
+            sb.Append("\"; filename=\"");
+            sb.Append(Path.GetFileName(filePath));
+            sb.Append("\"");
+            sb.AppendLine();
+            sb.Append("Content-Type: ");
+            sb.Append(contenttype);
+            sb.AppendLine();
+            sb.AppendLine();
+
+            string postHeader = sb.ToString();
+            byte[] postHeaderBytes = Encoding.UTF8.GetBytes(postHeader);
+
+            // Build the trailing boundary string as a byte array  
+            // ensuring the boundary appears on a line by itself  
+            byte[] boundaryBytes =
+                Encoding.ASCII.GetBytes(Environment.NewLine + "--" + boundary +"--"+ Environment.NewLine);
+            FileStream fileStream = null;
+            WebResponse response = null;
+            StreamReader sr = null;
+            string result = null;
+            try
+            {
+                fileStream = new FileStream(filePath,
+                              FileMode.Open, FileAccess.Read);
+                long length = postHeaderBytes.Length + fileStream.Length +
+                                    boundaryBytes.Length;
+                webrequest.ContentLength = length;
+
+                Stream requestStream = webrequest.GetRequestStream();
+
+                // Write out our post header  
+                requestStream.Write(postHeaderBytes, 0, postHeaderBytes.Length);
+
+                // Write out the file contents  
+                byte[] buffer = new Byte[checked((uint)Math.Min(4096,
+                             (int)fileStream.Length))];
+                int bytesRead = 0;
+                while ((bytesRead = fileStream.Read(buffer, 0, buffer.Length)) != 0)
+                    requestStream.Write(buffer, 0, bytesRead);
+
+                // Write out the trailing boundary  
+                requestStream.Write(boundaryBytes, 0, boundaryBytes.Length);
+                response = webrequest.GetResponse();
+                sr = new StreamReader(response.GetResponseStream());
+                result = sr.ReadToEnd();
+            }
+            catch (Exception e)
+            { }
+            finally
+            {
+                response.Close();
+                fileStream.Close();
+                webrequest.Abort();
+                sr.Close();
+            }
+
+            return result;
+        }
+
+        public static string getDataFromUrl(string url, string bindIP)
         {
             string result = null;
             HttpWebRequest request = null;
